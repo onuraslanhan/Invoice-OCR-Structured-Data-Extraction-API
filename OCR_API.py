@@ -79,23 +79,33 @@ async def extract_invoice(file: UploadFile = File(...)):
   max_retries = 3
   response = None
 
-  for attempt in range(max_retries):
-    try:
-      response = client.models.generate_content(
-          model="gemini-2.5-flash",
-          contents=prompt,
-          config={
-              "response_mime_type": "application/json",
-              "response_schema": Invoice,
-          },
-      )
-      break
-    except Exception as e:
-      if attempt == max_retries - 1:
-        raise HTTPException(
-            status_code=502, detail=f"LLM call has failed after retries: {e}"
+  models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+    response = None
+    last_exception = None
+
+    for model_name in models_to_try:
+      try:
+        print(f"Denenecek model: {model_name}")
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": Invoice,
+            },
         )
-      await asyncio.sleep(2)
+        if response and response.text:
+          break
+      except Exception as e:
+        print(f"{model_name} hata verdi: {e}")
+        last_exception = e
+        await asyncio.sleep(1)
+
+    if not response or not response.text:
+      raise HTTPException(
+          status_code=502,
+          detail=f"LLM call has failed across all models: {last_exception}",
+      )
 
   try:
     parsed = json.loads(response.text)
