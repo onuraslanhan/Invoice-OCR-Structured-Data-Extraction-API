@@ -55,7 +55,7 @@ async def extract_invoice(file: UploadFile = File(...)):
     else:
       img = Image.open(file.file)
   except UnidentifiedImageError as e:
-    raise HTTPException(status_code=400, detail=f"Geçersiz görsel: {e}")
+    raise HTTPException(status_code=400, detail=f"Invalid image format: {e}")
 
   raw_text = pytesseract.image_to_string(img)
 
@@ -72,10 +72,8 @@ async def extract_invoice(file: UploadFile = File(...)):
 
     {raw_text}
     """
-  print("--- RAW OCR ---")
-  print(raw_text)
-  print("--- END ---")
 
+  # Fallback model list
   models_to_try = [
       "gemini-2.5-flash",
       "gemini-2.5-pro",
@@ -86,7 +84,7 @@ async def extract_invoice(file: UploadFile = File(...)):
 
   for model_name in models_to_try:
     try:
-      print(f"Model deneniyor: {model_name}")
+      print(f"--> [ATTEMPT] Calling model: {model_name}", flush=True)
       response = client.models.generate_content(
           model=model_name,
           contents=prompt,
@@ -96,24 +94,24 @@ async def extract_invoice(file: UploadFile = File(...)):
           },
       )
       if response and response.text:
-        print(f"{model_name} başarıyla yanıt verdi.")
+        print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
         break
     except Exception as e:
-      print(f"{model_name} başarısız: {e}")
+      print(f"--> [ERROR] Model {model_name} failed: {e}", flush=True)
       last_exception = e
       await asyncio.sleep(2)
 
   if not response or not response.text:
     raise HTTPException(
         status_code=502,
-        detail=f"LLM call has failed across all models: {last_exception}",
+        detail=f"All fallback models failed. Last error: {last_exception}",
     )
 
   try:
     parsed = json.loads(response.text)
   except json.JSONDecodeError as e:
     raise HTTPException(
-        status_code=502, detail=f"LLM has returned invalid JSON: {e}"
+        status_code=502, detail=f"LLM returned invalid JSON: {e}"
     )
 
   return parsed
