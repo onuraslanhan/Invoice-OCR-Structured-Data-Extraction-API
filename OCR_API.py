@@ -76,13 +76,17 @@ async def extract_invoice(file: UploadFile = File(...)):
   print(raw_text)
   print("--- END ---")
 
-  models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-1.5-pro"]
+  models_to_try = [
+      "gemini-2.5-flash",
+      "gemini-2.5-pro",
+      "gemini-2.0-flash",
+  ]
   response = None
   last_exception = None
 
   for model_name in models_to_try:
     try:
-      print(f"Testing model: {model_name}")
+      print(f"Model deneniyor: {model_name}")
       response = client.models.generate_content(
           model=model_name,
           contents=prompt,
@@ -92,11 +96,12 @@ async def extract_invoice(file: UploadFile = File(...)):
           },
       )
       if response and response.text:
+        print(f"{model_name} başarıyla yanıt verdi.")
         break
     except Exception as e:
-      print(f"{model_name} threw an error: {e}")
+      print(f"{model_name} başarısız: {e}")
       last_exception = e
-      await asyncio.sleep(1)
+      await asyncio.sleep(2)
 
   if not response or not response.text:
     raise HTTPException(
