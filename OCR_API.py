@@ -73,14 +73,13 @@ async def extract_invoice(file: UploadFile = File(...)):
     {raw_text}
     """
 
-  # Sadece Google'ın önerdiği ve var olan modeli kullanıyoruz
-  models_to_try = ["gemini-3.6-flash"]
+  # Fallback model list
+  models_to_try = ["gemini-2.5-flash", "gemini-3.6-flash"]
   response = None
   last_exception = None
 
   for model_name in models_to_try:
-    # 503 yoğunluk hatasına karşı 5 kez tekrar et
-    for attempt in range(5):
+    for attempt in range(3):
       try:
         print(
             f"--> [ATTEMPT] Model: {model_name} (Try {attempt + 1})", flush=True
@@ -99,8 +98,7 @@ async def extract_invoice(file: UploadFile = File(...)):
       except Exception as e:
         print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
         last_exception = e
-        # Hata alırsa 3 saniye bekle ve tekrar dene
-        await asyncio.sleep(3)
+        await asyncio.sleep(2)
 
     if response and response.text:
       break
@@ -108,7 +106,7 @@ async def extract_invoice(file: UploadFile = File(...)):
   if not response or not response.text:
     raise HTTPException(
         status_code=502,
-        detail=f"API call failed after 5 attempts. Last error: {last_exception}",
+        detail=f"All fallback models failed. Last error: {last_exception}",
     )
 
   try:
