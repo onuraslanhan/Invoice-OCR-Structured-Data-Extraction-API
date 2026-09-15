@@ -100,8 +100,10 @@ async def extract_invoice(file: UploadFile = File(...)):
           print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
           break
       except Exception as e:
+        last_exception = e
         wait_time = 2 ** attempt
-        print(f"Retry {attempt+1}, waiting {wait_time}s...")
+        print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
+        print(f"Retry {attempt+1}, waiting {wait_time}s...", flush=True)
         await asyncio.sleep(wait_time)
 
     if response and response.text:
