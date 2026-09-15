@@ -82,7 +82,7 @@ async def extract_invoice(file: UploadFile = File(...)):
 
   for model_name in models_to_try:
     try:
-      print(f"Denenecek model: {model_name}")
+      print(f"Testing model: {model_name}")
       response = client.models.generate_content(
           model=model_name,
           contents=prompt,
@@ -94,7 +94,7 @@ async def extract_invoice(file: UploadFile = File(...)):
       if response and response.text:
         break
     except Exception as e:
-      print(f"{model_name} hata verdi: {e}")
+      print(f"{model_name} threw an error: {e}")
       last_exception = e
       await asyncio.sleep(1)
 
