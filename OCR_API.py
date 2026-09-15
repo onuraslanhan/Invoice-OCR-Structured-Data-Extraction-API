@@ -73,33 +73,34 @@ async def extract_invoice(file: UploadFile = File(...)):
     {raw_text}
     """
 
-  # Fallback model list
-  models_to_try = [
-      "gemini-2.5-flash",
-      "gemini-2.5-pro",
-      "gemini-2.0-flash",
-  ]
+  models_to_try = ["gemini-3.6-flash", "gemini-3.6-pro"]
   response = None
   last_exception = None
 
   for model_name in models_to_try:
-    try:
-      print(f"--> [ATTEMPT] Calling model: {model_name}", flush=True)
-      response = client.models.generate_content(
-          model=model_name,
-          contents=prompt,
-          config={
-              "response_mime_type": "application/json",
-              "response_schema": Invoice,
-          },
-      )
-      if response and response.text:
-        print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
-        break
-    except Exception as e:
-      print(f"--> [ERROR] Model {model_name} failed: {e}", flush=True)
-      last_exception = e
-      await asyncio.sleep(2)
+    for attempt in range(3):
+      try:
+        print(
+            f"--> [ATTEMPT] Model: {model_name} (Try {attempt + 1})", flush=True
+        )
+        response = client.models.generate_content(
+            model=model_name,
+            contents=prompt,
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": Invoice,
+            },
+        )
+        if response and response.text:
+          print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
+          break
+      except Exception as e:
+        print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
+        last_exception = e
+        await asyncio.sleep(2)
+
+    if response and response.text:
+      break
 
   if not response or not response.text:
     raise HTTPException(
