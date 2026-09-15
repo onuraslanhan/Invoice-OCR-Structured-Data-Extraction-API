@@ -7,7 +7,7 @@ from typing import List
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from google import genai
+from openai import OpenAI
 from pdf2image import convert_from_bytes
 from PIL import Image, UnidentifiedImageError
 from pydantic import BaseModel
@@ -27,7 +27,12 @@ else:
   POPPLER_PATH = None
 
 app = FastAPI()
-client = genai.Client()
+
+# OpenRouter client configuration
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=os.getenv("OPENROUTER_API_KEY"),
+)
 
 
 class LineItem(BaseModel):
@@ -64,62 +69,50 @@ async def extract_invoice(file: UploadFile = File(...)):
         status_code=422, detail="Could not extract any text from the image."
     )
 
-  prompt = f"""The following text was extracted via OCR and may contain character-recognition errors.
-    Use context to infer correct values. The "company" field should be the business/sender name issuing 
-    the invoice (usually the first prominent line, not a tagline or slogan).
+  prompt = f"""You are a professional invoice parser.
+Extract the details from the following OCR text and return ONLY a valid JSON object matching this schema:
+{{
+  "company": "string",
+  "invoice_number": "string",
+  "date": "string",
+  "customer": "string",
+  "subtotal": 0.0,
+  "tax_rate": "string",
+  "items": [
+    {{"description": "string"}}
+  ]
+}}
 
-    Extract the invoice details into structured JSON:
-
-    {raw_text}
-    """
-
-  # Priority given to gemini-2.5-flash to bypass 3.6-flash spikes
-  models_to_try = [
-    "gemini-flash-latest",
-    "gemini-2.5-flash-lite",
-    "gemini-3.6-flash",
-]
-  response = None
-  last_exception = None
-
-  for model_name in models_to_try:
-    for attempt in range(5):
-      try:
-        print(
-            f"--> [ATTEMPT] Model: {model_name} (Try {attempt + 1})", flush=True
-        )
-        response = client.models.generate_content(
-            model=model_name,
-            contents=prompt,
-            config={
-                "response_mime_type": "application/json",
-                "response_schema": Invoice,
-            },
-        )
-        if response and response.text:
-          print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
-          break
-      except Exception as e:
-        last_exception = e
-        wait_time = 2 ** attempt
-        print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
-        print(f"Retry {attempt+1}, waiting {wait_time}s...", flush=True)
-        await asyncio.sleep(wait_time)
-
-    if response and response.text:
-      break
-
-  if not response or not response.text:
-    raise HTTPException(
-        status_code=502,
-        detail=f"All fallback models failed. Last error: {last_exception}",
-    )
+OCR Text:
+{raw_text}
+"""
 
   try:
-    parsed = json.loads(response.text)
+    print("--> Calling OpenRouter Free API...", flush=True)
+    completion = client.chat.completions.create(
+        model="openrouter/free",
+        messages=[
+            {
+                "role": "system",
+                "content": (
+                    "Return ONLY valid JSON. No markdown backticks, no"
+                    " explanation."
+                ),
+            },
+            {"role": "user", "content": prompt},
+        ],
+        response_format={"type": "json_object"},
+    )
+    raw_response = completion.choices[0].message.content
+  except Exception as e:
+    print(f"--> [ERROR] OpenRouter call failed: {e}", flush=True)
+    raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
+
+  try:
+    parsed = json.loads(raw_response)
   except json.JSONDecodeError as e:
     raise HTTPException(
-        status_code=502, detail=f"LLM returned invalid JSON: {e}"
+        status_code=502, detail=f"LLM returned invalid JSON: {raw_response}"
     )
 
   return parsed
