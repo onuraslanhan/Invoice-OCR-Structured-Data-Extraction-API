@@ -1,9 +1,9 @@
 fastapi
-uvicorn[standard]
+uvicorn
 python-multipart
-pydantic
-python-dotenv
-google-genai
-pillow
 pytesseract
+pillow
 pdf2image
+python-dotenv
+pydantic
+openai
