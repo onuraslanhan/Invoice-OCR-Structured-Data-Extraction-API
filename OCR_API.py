@@ -74,7 +74,11 @@ async def extract_invoice(file: UploadFile = File(...)):
     """
 
   # Priority given to gemini-2.5-flash to bypass 3.6-flash spikes
-  models_to_try = ["gemini-2.5-flash", "gemini-3.6-flash"]
+  models_to_try = [
+    "gemini-flash-latest",
+    "gemini-2.5-flash-lite",
+    "gemini-3.6-flash",
+]
   response = None
   last_exception = None
 
