@@ -73,13 +73,13 @@ async def extract_invoice(file: UploadFile = File(...)):
     {raw_text}
     """
 
-  # Fallback model list
+  # Priority given to gemini-2.5-flash to bypass 3.6-flash spikes
   models_to_try = ["gemini-2.5-flash", "gemini-3.6-flash"]
   response = None
   last_exception = None
 
   for model_name in models_to_try:
-    for attempt in range(3):
+    for attempt in range(2):
       try:
         print(
             f"--> [ATTEMPT] Model: {model_name} (Try {attempt + 1})", flush=True
@@ -98,7 +98,7 @@ async def extract_invoice(file: UploadFile = File(...)):
       except Exception as e:
         print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
         last_exception = e
-        await asyncio.sleep(2)
+        await asyncio.sleep(4)
 
     if response and response.text:
       break
