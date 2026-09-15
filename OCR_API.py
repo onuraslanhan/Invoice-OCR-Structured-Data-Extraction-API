@@ -79,7 +79,7 @@ async def extract_invoice(file: UploadFile = File(...)):
   last_exception = None
 
   for model_name in models_to_try:
-    for attempt in range(2):
+    for attempt in range(5):
       try:
         print(
             f"--> [ATTEMPT] Model: {model_name} (Try {attempt + 1})", flush=True
@@ -96,9 +96,9 @@ async def extract_invoice(file: UploadFile = File(...)):
           print(f"--> [SUCCESS] Model {model_name} responded.", flush=True)
           break
       except Exception as e:
-        print(f"--> [ERROR] {model_name} failed: {e}", flush=True)
-        last_exception = e
-        await asyncio.sleep(4)
+        wait_time = 2 ** attempt
+        print(f"Retry {attempt+1}, waiting {wait_time}s...")
+        await asyncio.sleep(wait_time)
 
     if response and response.text:
       break
