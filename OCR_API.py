@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import sys
 from typing import List
-
+from pydantic import BaseModel, ValidationError
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from openai import OpenAI
@@ -111,8 +111,15 @@ OCR Text:
   try:
     parsed = json.loads(raw_response)
   except json.JSONDecodeError as e:
-    raise HTTPException(
-        status_code=502, detail=f"LLM returned invalid JSON: {raw_response}"
-    )
+      raise HTTPException(
+          status_code=502, detail=f"LLM returned invalid JSON: {raw_response}"
+      )
 
-  return parsed
+  try:
+      validated = Invoice(**parsed)
+  except ValidationError as e:
+      raise HTTPException(
+          status_code=502, detail=f"LLM output did not match schema: {e}"
+      )
+
+  return validated.model_dump()
