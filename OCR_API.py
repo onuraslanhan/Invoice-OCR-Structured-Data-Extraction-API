@@ -34,21 +34,15 @@ client = OpenAI(
     api_key=os.getenv("OPENROUTER_API_KEY"),
 )
 
-
-class LineItem(BaseModel):
-  description: str
-
-
 class Invoice(BaseModel):
-  company: str
-  invoice_number: str
-  date: str
-  customer: str
-  subtotal: float
-  tax_rate: str
-  items: List[LineItem]
-
-
+    company: str
+    invoice_number: str
+    date: str
+    customer: str
+    subtotal: float
+    tax_rate: str
+    items: List[str]
+    
 @app.post("/extract-invoice")
 async def extract_invoice(file: UploadFile = File(...)):
   try:
@@ -78,9 +72,7 @@ Extract the details from the following OCR text and return ONLY a valid JSON obj
   "customer": "string",
   "subtotal": 0.0,
   "tax_rate": "string",
-  "items": [
-    {{"description": "string"}}
-  ]
+  "items": ["string", "string"]
 }}
 
 OCR Text:
@@ -104,6 +96,8 @@ OCR Text:
         response_format={"type": "json_object"},
     )
     raw_response = completion.choices[0].message.content
+    print(f"--> RAW LLM RESPONSE: {raw_response}", flush=True)
+    print(f"--> MODEL USED: {completion.model}", flush=True)
   except Exception as e:
     print(f"--> [ERROR] OpenRouter call failed: {e}", flush=True)
     raise HTTPException(status_code=502, detail=f"LLM call failed: {e}")
